@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", sans-serif;
+  
+  --color-sprout-primary: #4ADE80;
+  --color-sprout-accent: #A3E635;
+  --color-sprout-text: #14532D;
+  --color-sprout-bg: #F0FDF4;
+}
