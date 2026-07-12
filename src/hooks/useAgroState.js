@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+﻿import { useState, useCallback, useEffect } from 'react';
 
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const SENSOR_CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
@@ -9,25 +9,25 @@ export function useAgroState() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [device, setDevice] = useState(null);
   const [relayCharacteristic, setRelayCharacteristic] = useState(null);
-  
-  // Sensor state
-  const [sensors, setSensors] = useState({ temp: '--', hum: '--', light: '--' });
-  
-  // Relay state (0-3 indexes)
+
+  const [sensors, setSensors] = useState({
+    temp: '--',
+    hum: '--',
+    light: '--',
+    mist: '0',
+    pumpActive: '0'
+  });
+
   const [relays, setRelays] = useState(['0', '0', '0', '0']);
-  
-  // Config state
   const [autoMode, setAutoMode] = useState(false);
   const [calibrations, setCalibrations] = useState({ dark: 0, bright: 100 });
 
-  // Disconnect handler
   const disconnectBLE = useCallback(() => {
     if (device && device.gatt.connected) {
       device.gatt.disconnect();
     }
   }, [device]);
 
-  // Handle disconnections
   useEffect(() => {
     const onDisconnected = () => {
       setIsConnected(false);
@@ -38,6 +38,7 @@ export function useAgroState() {
     if (device) {
       device.addEventListener('gattserverdisconnected', onDisconnected);
     }
+
     return () => {
       if (device) {
         device.removeEventListener('gattserverdisconnected', onDisconnected);
@@ -54,37 +55,45 @@ export function useAgroState() {
 
       const server = await bleDevice.gatt.connect();
       const service = await server.getPrimaryService(SERVICE_UUID);
-      
-      // Setup Sensors
+
       const sensorChar = await service.getCharacteristic(SENSOR_CHAR_UUID);
       await sensorChar.startNotifications();
       sensorChar.addEventListener('characteristicvaluechanged', (event) => {
         const decoder = new TextDecoder('utf-8');
-        const rawString = decoder.decode(event.target.value);
-        const dataParts = rawString.split(',');
-        if (dataParts.length === 3) {
+        const rawString = decoder.decode(event.target.value).trim();
+        const dataParts = rawString.split(',').map((value) => value.trim());
+
+        if (dataParts.length >= 4) {
+          const pumpActive = dataParts[3] === '1' ? '1' : '0';
+
           setSensors({
             temp: parseFloat(dataParts[0]).toFixed(1),
             hum: parseFloat(dataParts[1]).toFixed(1),
-            light: parseInt(dataParts[2], 10).toString()
+            light: parseInt(dataParts[2], 10).toString(),
+            pumpActive,
+            mist: pumpActive
           });
         }
       });
 
-      // Setup Relays
       const relayChar = await service.getCharacteristic(RELAY_CHAR_UUID);
       setRelayCharacteristic(relayChar);
-      
+
       setDevice(bleDevice);
       setIsConnected(true);
     } catch (error) {
-      console.error("BLE Error:", error);
+      console.error('BLE Error:', error);
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const toggleRelay = async (index) => {
+  const toggleRelay = useCallback(async (index) => {
+    if (index < 0 || index >= relays.length) {
+      console.error('Invalid relay index:', index);
+      return;
+    }
+
     const newStates = [...relays];
     newStates[index] = newStates[index] === '1' ? '0' : '1';
     setRelays(newStates);
@@ -95,10 +104,10 @@ export function useAgroState() {
         const encoder = new TextEncoder();
         await relayCharacteristic.writeValue(encoder.encode(payloadStr));
       } catch (err) {
-        console.error("Relay write failed:", err);
+        console.error('Relay write failed:', err);
       }
     }
-  };
+  }, [relays, relayCharacteristic]);
 
   return {
     isConnected,

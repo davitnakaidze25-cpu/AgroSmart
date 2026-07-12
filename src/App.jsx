@@ -1,101 +1,78 @@
 import React, { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { Home, Sliders, CloudRain, Settings } from 'lucide-react';
-import { cn } from './lib/utils';
+import HomeDashboard from './components/HomeDashboard';
+import ControlMode from './components/ControlMode';
+import DeviceConnection from './components/DeviceConnection';
+import ChartsHistory from './components/ChartsHistory';
+import { Home, SlidersHorizontal, Cloud, BarChart2 } from 'lucide-react';
 import { useAgroState } from './hooks/useAgroState';
 
-import Dashboard from './components/Dashboard';
-import Controls from './components/Controls';
-import Weather from './components/Weather';
-import Config from './components/Config';
-
 export default function App() {
-  const [activeTab, setActiveTab] = useState('hub');
+  const [activeTab, setActiveTab] = useState('home');
   const agroState = useAgroState();
 
-  const renderTab = () => {
+  const renderView = () => {
     switch (activeTab) {
-      case 'hub':
-        return <Dashboard key="hub" sensors={agroState.sensors} />;
-      case 'controls':
-        return <Controls key="controls" relays={agroState.relays} toggleRelay={agroState.toggleRelay} />;
-      case 'weather':
-        return <Weather key="weather" internalTemp={agroState.sensors.temp} />;
-      case 'config':
-        return <Config key="config" {...agroState} />;
+      case 'home':
+        return <HomeDashboard sensors={agroState.sensors} isConnected={agroState.isConnected} />;
+      case 'control':
+        return (
+          <ControlMode
+            relays={agroState.relays}
+            toggleRelay={agroState.toggleRelay}
+            autoMode={agroState.autoMode}
+            setAutoMode={agroState.setAutoMode}
+            sensors={agroState.sensors}
+          />
+        );
+      case 'device':
+        return (
+          <DeviceConnection
+            isConnected={agroState.isConnected}
+            isConnecting={agroState.isConnecting}
+            connectBLE={agroState.connectBLE}
+            disconnectBLE={agroState.disconnectBLE}
+          />
+        );
+      case 'charts':
+        return <ChartsHistory />;
       default:
-        return <Dashboard key="hub" sensors={agroState.sensors} />;
+        return <HomeDashboard sensors={agroState.sensors} isConnected={agroState.isConnected} />;
     }
   };
 
   const navItems = [
-    { id: 'hub', label: 'Hub', icon: Home },
-    { id: 'controls', label: 'Controls', icon: Sliders },
-    { id: 'weather', label: 'Weather', icon: CloudRain },
-    { id: 'config', label: 'Config', icon: Settings },
+    { id: 'home', label: 'მთავარი', icon: Home },
+    { id: 'control', label: 'კონტროლი', icon: SlidersHorizontal },
+    { id: 'device', label: 'მოწყობილობა', icon: Cloud },
+    { id: 'charts', label: 'გრაფიკები', icon: BarChart2 },
   ];
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-sprout-bg relative pb-24 shadow-2xl shadow-zinc-200/50 sm:border-x border-zinc-200 flex flex-col font-sans">
-      
-      {/* Global Sticky Header */}
-      <header className="sticky top-0 z-50 bg-sprout-bg/90 backdrop-blur-2xl border-b border-zinc-200/60 px-5 py-4 flex justify-between items-center drop-shadow-sm">
-        <h1 className="text-xl font-bold tracking-tight text-sprout-text">AgroSmart</h1>
-        
-        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-zinc-200 shadow-sm">
-          <div className="relative flex h-2.5 w-2.5">
-            {agroState.isConnected && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sprout-primary opacity-75"></span>
-            )}
-            <span className={cn(
-              "relative inline-flex rounded-full h-2.5 w-2.5",
-              agroState.isConnected ? "bg-sprout-primary" : "bg-zinc-300"
-            )}></span>
-          </div>
-          <span className="font-semibold text-emerald-800 uppercase tracking-widest text-[9px]">
-            {agroState.isConnected ? 'Linked' : 'Offline'}
-          </span>
-        </div>
-      </header>
+    <div className="max-w-md mx-auto min-h-screen bg-slate-50 relative pb-20 shadow-2xl overflow-hidden flex flex-col font-sans text-slate-800">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative">{renderView()}</main>
 
-      {/* Main Content Area */}
-      <main className="flex-1 relative overflow-x-hidden">
-        <AnimatePresence mode="wait">
-          {renderTab()}
-        </AnimatePresence>
-      </main>
-
-      {/* Fixed Bottom Tab Bar */}
-      <nav className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl border-t border-zinc-200 pb-[env(safe-area-inset-bottom)] z-50 drop-shadow-lg">
-        <div className="flex justify-around items-center p-2">
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-100 pb-[env(safe-area-inset-bottom)] z-50">
+        <div className="flex justify-around items-center pt-2 pb-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            
+
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className="relative flex flex-col items-center justify-center w-16 h-14"
+                className={`flex flex-col items-center justify-center w-16 h-12 transition-colors ${
+                  isActive ? 'text-emerald-600' : 'text-slate-400 hover:text-slate-500'
+                }`}
               >
-                <div className={cn(
-                  "flex flex-col items-center justify-center gap-1.5 transition-colors duration-300 z-10",
-                  isActive ? "text-sprout-primary" : "text-emerald-800/60"
-                )}>
-                  <Icon size={22} className={cn("transition-transform duration-300", isActive && "scale-110")} />
-                  <span className="font-semibold uppercase tracking-widest text-[9px]">{item.label}</span>
-                </div>
-                
-                {/* Active Pill Indicator */}
-                {isActive && (
-                  <div className="absolute inset-0 bg-sprout-primary/10 rounded-2xl -z-0" />
-                )}
+                <Icon size={24} className={`mb-1 transition-transform ${isActive ? 'scale-110' : ''}`} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-medium tracking-wide">{item.label}</span>
               </button>
             );
           })}
         </div>
       </nav>
-
     </div>
   );
 }
